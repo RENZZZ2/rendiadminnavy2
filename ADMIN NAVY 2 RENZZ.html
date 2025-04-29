@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Konversi Kontak ke VCF</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      transition: background-color 0.3s ease;
+    }
+
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      width: 100%;
+      max-width: 600px;
+      box-sizing: border-box;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .container:hover {
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+      font-size: 2.2em;
+      margin-bottom: 30px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    label {
+      font-size: 16px;
+      color: #555;
+      display: block;
+      margin-bottom: 8px;
+      transition: color 0.3s ease;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 16px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      border-color: #4CAF50;
+      box-shadow: 0 0 8px rgba(76, 175, 80, 0.2);
+    }
+
+    input[type="submit"] {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #45a049;
+      transform: scale(1.05);
+    }
+
+    input[type="submit"]:active {
+      transform: scale(1);
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group input[type="text"],
+    .form-group textarea {
+      width: calc(100% - 22px);
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        width: 90%;
+      }
+
+      label, input[type="text"], textarea {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Konversi Kontak ke VCF</h1>
+    <form id="vcfForm">
+      <div class="form-group">
+        <label for="raw_text">Tempel Semua Data (Admin/Navy campur):</label><br />
+        <textarea id="raw_text" rows="15" cols="50" required></textarea><br />
+      </div>
+
+      <div class="form-group">
+        <label for="admin_name">Nama Kontak Admin:</label>
+        <input type="text" id="admin_name" required><br />
+      </div>
+
+      <div class="form-group">
+        <label for="navy_name">Nama Kontak Navy:</label>
+        <input type="text" id="navy_name" required><br />
+      </div>
+
+      <div class="form-group">
+        <label for="file_name">Nama File:</label>
+        <input type="text" id="file_name" required><br />
+      </div>
+
+      <input type="submit" value="Generate VCF">
+    </form>
+  </div>
+
+  <script>
+    const ADMIN_KEYWORDS = ["admin", "管理"];
+    const NAVY_KEYWORDS = ["navy", "水军"];
+
+    function formatPhoneNumber(phoneNumber) {
+      let formatted = phoneNumber.replace(/[^+\d]/g, '');
+      if (!formatted.startsWith('+')) {
+        formatted = '+' + formatted;
+      }
+      return formatted;
+    }
+
+    function isValidPhone(line) {
+      const cleaned = line.replace(/[^+\d]/g, '');
+      return /^\+?\d{7,16}$/.test(cleaned);
+    }
+
+    function isSection(line, keywords) {
+      return keywords.some(keyword => line.toLowerCase().includes(keyword.toLowerCase()));
+    }
+
+    document.getElementById('vcfForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const lines = document.getElementById('raw_text').value.split('\n').map(l => l.trim());
+      const adminLabel = document.getElementById('admin_name').value.trim();
+      const navyLabel = document.getElementById('navy_name').value.trim();
+      const fileName = document.getElementById('file_name').value.trim();
+
+      let currentSection = null;
+      const adminList = [];
+      const navyList = [];
+
+      lines.forEach(line => {
+        if (isSection(line, ADMIN_KEYWORDS)) {
+          currentSection = 'admin';
+        } else if (isSection(line, NAVY_KEYWORDS)) {
+          currentSection = 'navy';
+        } else if (isValidPhone(line)) {
+          const number = formatPhoneNumber(line);
+          if (currentSection === 'admin') {
+            adminList.push(number);
+          } else if (currentSection === 'navy') {
+            navyList.push(number);
+          }
+        }
+      });
+
+      let vcf = '';
+      adminList.forEach((num, i) => {
+        vcf += `BEGIN:VCARD\nVERSION:3.0\nFN:${adminLabel} ${i + 1}\nTEL:${num}\nEND:VCARD\n`;
+      });
+      navyList.forEach((num, i) => {
+        vcf += `BEGIN:VCARD\nVERSION:3.0\nFN:${navyLabel} ${i + 1}\nTEL:${num}\nEND:VCARD\n`;
+      });
+
+      const blob = new Blob([vcf.trim()], { type: 'text/vcard' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName + '.vcf';
+      link.click();
+    });
+  </script>
+</body>
+</html>
